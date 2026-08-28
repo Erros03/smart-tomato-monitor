@@ -11,14 +11,14 @@ export interface DashboardState {
   data: DashboardData;
   loading: boolean;
   error: Error | null;
-  /** True when live Firestore subscriptions are active. */
+  /** True when live Realtime Database subscriptions are active. */
   live: boolean;
 }
 
 /**
- * Subscribes to the `detections` and `hardware` Firestore collections in real
- * time. Falls back to bundled demo data when Firebase env vars are missing so
- * the UI is always reviewable.
+ * Subscribes to the `detections` and `hardware` nodes of the Firebase Realtime
+ * Database. Falls back to bundled demo data when Firebase env vars are missing
+ * so the UI is always reviewable.
  */
 export function useDashboardData(): DashboardState {
   const [data, setData] = useState<DashboardData>(DEMO_DATA);
@@ -35,13 +35,15 @@ export function useDashboardData(): DashboardState {
 
     let cancelled = false;
     const unsubscribes: Array<() => void> = [];
-    const next: DashboardData = { detections: DEMO_DATA.detections, hardware: DEMO_DATA.hardware };
+    const next: DashboardData = { detections: {}, hardware: DEMO_DATA.hardware };
 
     const start = async () => {
-      const [{ collection, onSnapshot, query, orderBy }, { getFirebaseFirestore }] =
-        await Promise.all([import("firebase/firestore"), import("@/lib/firebase")]);
+      const [{ ref, onValue }, { getFirebaseDatabase }] = await Promise.all([
+        import("firebase/database"),
+        import("@/lib/firebase"),
+      ]);
 
-      const db = await getFirebaseFirestore();
+      const db = await getFirebaseDatabase();
       if (!db || cancelled) {
         setLoading(false);
         return;
@@ -50,12 +52,13 @@ export function useDashboardData(): DashboardState {
       setLive(true);
 
       unsubscribes.push(
-        onSnapshot(
-          query(collection(db, "detections"), orderBy("timestamp", "desc")),
+        onValue(
+          ref(db, "detections"),
           (snapshot) => {
             const detections: Record<string, Detection> = {};
-            snapshot.forEach((doc) => {
-              detections[doc.id] = { id: doc.id, ...(doc.data() as Omit<Detection, "id">) };
+            snapshot.forEach((child) => {
+              const value = child.val() as Omit<Detection, "id">;
+              detections[child.key!] = { ...value, id: child.key! };
             });
             next.detections = detections;
             if (!cancelled) {
@@ -69,25 +72,22 @@ export function useDashboardData(): DashboardState {
               setError(err instanceof Error ? err : new Error(String(err)));
               setLoading(false);
             }
-          }
-        )
+          },
+        ),
       );
 
       unsubscribes.push(
-        onSnapshot(
-          collection(db, "hardware"),
+        onValue(
+          ref(db, "hardware"),
           (snapshot) => {
-            const hardware: Record<string, HardwareItem> = {};
-            snapshot.forEach((doc) => {
-              hardware[doc.id] = doc.data() as HardwareItem;
-            });
-            next.hardware = hardware;
+            const value = snapshot.val() as Record<string, HardwareItem> | null;
+            next.hardware = value ?? DEMO_DATA.hardware;
             if (!cancelled) setData({ ...next });
           },
           (err) => {
             if (!cancelled) setError(err instanceof Error ? err : new Error(String(err)));
-          }
-        )
+          },
+        ),
       );
     };
 
