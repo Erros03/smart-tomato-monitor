@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useServerFn } from "@tanstack/react-start";
 import { detectTomatoesFn } from "@/lib/roboflow.functions";
 import type { RoboflowDetectionResult } from "@/lib/roboflow.server";
+import { saveDetections } from "@/lib/detection-log";
+import { isFirebaseConfigured } from "@/lib/firebase-config";
 
 const CLASS_COLORS: Record<string, string> = {
   ripe_tomato: "#ef4444",
@@ -35,6 +37,28 @@ export function RoboflowDetector() {
   const [liveDetect, setLiveDetect] = useState(false);
   const [intervalMs, setIntervalMs] = useState(1000);
   const [fps, setFps] = useState(0);
+  const [autoSave, setAutoSave] = useState(true);
+  const [savedCount, setSavedCount] = useState(0);
+  const lastSaveRef = useRef(0);
+  const firebaseReady = isFirebaseConfigured();
+
+  // Pushes detections to the Realtime Database, throttled so the live loop
+  // does not flood the database with near-duplicate frames.
+  const persist = useCallback(
+    async (detections: RoboflowDetectionResult) => {
+      if (!autoSave || detections.predictions.length === 0) return;
+      const now = Date.now();
+      if (now - lastSaveRef.current < 2000) return;
+      lastSaveRef.current = now;
+      try {
+        const saved = await saveDetections(detections.predictions, detections.imageWidth);
+        if (saved > 0) setSavedCount((c) => c + saved);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save detections to the database.");
+      }
+    },
+    [autoSave],
+  );
 
   const startCamera = async () => {
     setError(null);
@@ -113,6 +137,7 @@ export function RoboflowDetector() {
       const detections = await detect({ data: { imageBase64 } });
       setResult(detections);
       drawResult(detections, source);
+      void persist(detections);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Detection failed. Please try again.");
       throw err;
@@ -227,6 +252,14 @@ export function RoboflowDetector() {
             e.target.value = "";
           }}
         />
+        <Button
+          size="sm"
+          variant={autoSave ? "default" : "outline"}
+          onClick={() => setAutoSave((v) => !v)}
+        >
+          {autoSave ? <Radio className="mr-2 h-4 w-4" /> : <Square className="mr-2 h-4 w-4" />}
+          {autoSave ? "Saving to database" : "Saving paused"}
+        </Button>
         <Badge variant="outline" className="ml-auto text-xs font-medium">
           Model: tomato-fruit-ripeness-and-blight v1
         </Badge>
@@ -267,11 +300,20 @@ export function RoboflowDetector() {
         )}
       </div>
 
+      {!firebaseReady && (
+        <p className="text-xs text-muted-foreground">
+          Firebase Realtime Database is not configured yet, so detections are not being saved. Add
+          the VITE_FIREBASE_* environment variables (including VITE_FIREBASE_DATABASE_URL).
+        </p>
+      )}
+
       {result && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
             {result.predictions.length} detection
             {result.predictions.length === 1 ? "" : "s"} · inference in {result.inferenceTimeMs} ms
+            {savedCount > 0 ? ` · ${savedCount} saved to database` : ""}
+            {liveDetect && fps > 0 ? ` · ~${fps} fps` : ""}
           </p>
           {result.predictions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No tomatoes detected in this frame.</p>
