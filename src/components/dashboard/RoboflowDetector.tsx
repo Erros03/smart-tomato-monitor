@@ -79,6 +79,7 @@ export function RoboflowDetector() {
   };
 
   const stopCamera = useCallback(() => {
+    setLiveDetect(false);
     stream?.getTracks().forEach((t) => t.stop());
     setStream(null);
     setCameraOn(false);
