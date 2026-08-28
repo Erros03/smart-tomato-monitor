@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, ScanSearch, Upload, Loader2, Radio, Square } from "lucide-react";
+import { Camera, CameraOff, ScanSearch, Upload, Loader2, Radio, Square, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useServerFn } from "@tanstack/react-start";
@@ -35,7 +35,7 @@ export function RoboflowDetector() {
   const [result, setResult] = useState<RoboflowDetectionResult | null>(null);
   const [still, setStill] = useState<string | null>(null);
   const [liveDetect, setLiveDetect] = useState(false);
-  const [intervalMs, setIntervalMs] = useState(1000);
+  const [intervalMs, setIntervalMs] = useState(300);
   const [fps, setFps] = useState(0);
   const [autoSave, setAutoSave] = useState(true);
   const [savedCount, setSavedCount] = useState(0);
@@ -79,6 +79,7 @@ export function RoboflowDetector() {
   };
 
   const stopCamera = useCallback(() => {
+    setLiveDetect(false);
     stream?.getTracks().forEach((t) => t.stop());
     setStream(null);
     setCameraOn(false);
@@ -222,14 +223,38 @@ export function RoboflowDetector() {
               <CameraOff className="mr-2 h-4 w-4" />
               Stop
             </Button>
-            <Button size="sm" onClick={analyzeFrame} disabled={analyzing}>
-              {analyzing ? (
+            <Button size="sm" onClick={analyzeFrame} disabled={analyzing || liveDetect}>
+              {analyzing && !liveDetect ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <ScanSearch className="mr-2 h-4 w-4" />
               )}
               Analyze frame
             </Button>
+            <Button
+              size="sm"
+              variant={liveDetect ? "destructive" : "default"}
+              onClick={() => setLiveDetect((v) => !v)}
+            >
+              {liveDetect ? (
+                <Pause className="mr-2 h-4 w-4" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              {liveDetect ? "Pause continuous" : "Continuous detect"}
+            </Button>
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+              value={intervalMs}
+              onChange={(e) => setIntervalMs(Number(e.target.value))}
+              title="Detection interval"
+            >
+              <option value={0}>No pause</option>
+              <option value={300}>300 ms</option>
+              <option value={500}>500 ms</option>
+              <option value={1000}>1 s</option>
+              <option value={2000}>2 s</option>
+            </select>
           </>
         )}
         <Button
