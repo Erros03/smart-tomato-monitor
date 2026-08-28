@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, ScanSearch, Upload, Loader2, Radio, Square } from "lucide-react";
+import { Camera, CameraOff, ScanSearch, Upload, Loader2, Radio, Square, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useServerFn } from "@tanstack/react-start";
@@ -35,7 +35,7 @@ export function RoboflowDetector() {
   const [result, setResult] = useState<RoboflowDetectionResult | null>(null);
   const [still, setStill] = useState<string | null>(null);
   const [liveDetect, setLiveDetect] = useState(false);
-  const [intervalMs, setIntervalMs] = useState(1000);
+  const [intervalMs, setIntervalMs] = useState(300);
   const [fps, setFps] = useState(0);
   const [autoSave, setAutoSave] = useState(true);
   const [savedCount, setSavedCount] = useState(0);
