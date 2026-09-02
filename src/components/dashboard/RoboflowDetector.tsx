@@ -68,6 +68,7 @@ export function RoboflowDetector() {
       });
       setStream(media);
       setCameraOn(true);
+      setLiveDetect(true);
       setStill(null);
       if (videoRef.current) {
         videoRef.current.srcObject = media;
