@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Sprout, Ruler, Hash } from "lucide-react";
+import { Sprout, Ruler, Gauge, AlertTriangle } from "lucide-react";
 import { StatCardGrid, type StatCardItem } from "@/components/dashboard/StatCards";
 import { SizeRipenessPanel } from "@/components/dashboard/SizeRipenessPanel";
+import { ThroughputPanel, computeThroughput } from "@/components/dashboard/ThroughputPanel";
+import { SorterSimulator } from "@/components/dashboard/SorterSimulator";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { computeMetrics, type TomatoSize } from "@/lib/dashboard-data";
@@ -33,6 +35,7 @@ const SIZE_ORDER: TomatoSize[] = ["Small", "Medium", "Large"];
 function YieldMonitoringPage() {
   const { data, loading, error } = useDashboardData();
   const metrics = computeMetrics(data.detections);
+  const throughput = computeThroughput(data.detections);
 
   const items: StatCardItem[] = [
     {
@@ -48,6 +51,20 @@ function YieldMonitoringPage() {
       icon: Ruler,
       color: "text-tomato",
       bg: "bg-tomato/10",
+    },
+    {
+      label: "Throughput / hour",
+      value: throughput.perHour,
+      icon: Gauge,
+      color: "text-info",
+      bg: "bg-info/10",
+    },
+    {
+      label: "Defect Rate",
+      value: `${throughput.defectRate}%`,
+      icon: AlertTriangle,
+      color: "text-danger",
+      bg: "bg-danger/10",
     },
   ];
 
@@ -106,9 +123,9 @@ function YieldMonitoringPage() {
                       <div>
                         <p className="text-sm font-medium text-foreground">{size}</p>
                         <p className="text-xs text-muted-foreground">
-                          {size === "Small" && "< 55 mm"}
-                          {size === "Medium" && "55 – 70 mm"}
-                          {size === "Large" && "> 70 mm"}
+                          {size === "Small" && "< 50 mm"}
+                          {size === "Medium" && "50 – 65 mm"}
+                          {size === "Large" && "≥ 66 mm"}
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
@@ -129,6 +146,13 @@ function YieldMonitoringPage() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <ThroughputPanel detections={data.detections} />
+            </div>
+            <SorterSimulator detections={data.detections} />
           </div>
         </div>
       </main>
