@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { History } from "lucide-react";
+import { History, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -36,10 +37,32 @@ function HistoryPage() {
 
   const rows = getAllDetections(data.detections);
 
+  function exportCsv() {
+    const header = ["Timestamp", "Label", "Confidence (%)", "Diameter (mm)", "Size", "Ripeness"];
+    const lines = rows.map((d) =>
+      [
+        new Date(d.timestamp).toISOString(),
+        d.label,
+        d.confidence,
+        d.diameterMm,
+        d.size,
+        d.ripeness,
+      ].join(","),
+    );
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tomato-detections-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-info/10 text-info">
             <History className="h-6 w-6" />
           </div>
@@ -48,7 +71,11 @@ function HistoryPage() {
             <p className="text-sm text-muted-foreground">
               Every detection recorded by the sorting system
             </p>
+            </div>
           </div>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={rows.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Export CSV
+          </Button>
         </div>
 
         {error && (
